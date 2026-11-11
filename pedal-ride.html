@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>페달 라이드</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Gothic+A1:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme: light;
+  --ui:#14213D; --ui-2:#22335A; --ui-text:#F7F4EC; --ui-muted:#AEB8CC;
+  --accent:#FFC93C; --go:#3DDC97; --warn:#FF7A59;
+  --sky1:#9FD8E0; --sky2:#F8D3B0; --sun:#FFF1C9;
+  --mtn:#6E86A0; --hill:#7FA35E; --hill2:#5F8746; --tree:#3F6B3A; --trunk:#6B4A35;
+  --road:#3B3F46; --line:#F2EBDD; --edge:#C9B48A;
+  --bike:#E2483D; --skin:#F1C29B; --shirt:#1F6FB2; --shorts:#20242B;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme: dark;
+    --ui:#0E1628; --ui-2:#1B2742; --ui-text:#F1EEE6; --ui-muted:#8C98B2;
+    --sky1:#0B1430; --sky2:#2B3566; --sun:#E9E6D4;
+    --mtn:#26324F; --hill:#2C4A3A; --hill2:#22392D; --tree:#1B3326; --trunk:#3A2A20;
+    --road:#24262C; --line:#C9C2B2; --edge:#6E6250;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --ui:#0E1628; --ui-2:#1B2742; --ui-text:#F1EEE6; --ui-muted:#8C98B2;
+  --sky1:#0B1430; --sky2:#2B3566; --sun:#E9E6D4;
+  --mtn:#26324F; --hill:#2C4A3A; --hill2:#22392D; --tree:#1B3326; --trunk:#3A2A20;
+  --road:#24262C; --line:#C9C2B2; --edge:#6E6250;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{height:100%;margin:0;overflow:hidden;background:var(--ui);color:var(--ui-text);
+  font-family:"Gothic A1",-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  -webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+#game{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:manipulation}
+.display{font-family:"Black Han Sans","Gothic A1","Apple SD Gothic Neo",sans-serif;font-weight:400}
+
+/* HUD */
+#hud{position:fixed;left:0;right:0;top:0;padding:calc(env(safe-area-inset-top,0px) + 12px) 16px 0;
+  display:none;justify-content:space-between;align-items:flex-start;gap:12px;pointer-events:none}
+#hud.on{display:flex}
+.speed{line-height:.85;color:var(--ui-text);text-shadow:0 2px 0 rgba(0,0,0,.35)}
+.speed b{font-size:clamp(72px,18vw,150px);color:var(--accent)}
+.speed span{font-size:clamp(18px,4vw,28px);margin-left:6px}
+.stats{display:grid;grid-template-columns:auto auto;gap:4px 14px;background:color-mix(in srgb,var(--ui) 82%,transparent);
+  padding:10px 14px;border-radius:14px;font-size:clamp(14px,3.4vw,20px)}
+.stats dt{color:var(--ui-muted)}
+.stats dd{margin:0;text-align:right;font-family:"Black Han Sans","Gothic A1",sans-serif;font-size:1.25em}
+#controls{position:fixed;right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 12px);display:none;gap:8px}
+#controls.on{display:flex}
+#mini{position:fixed;left:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 12px);width:128px;height:96px;
+  border-radius:10px;border:2px solid var(--ui-text);display:none;background:#000}
+#mini.on{display:block}
+#tapHint{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 20px);transform:translateX(-50%);
+  background:var(--ui);padding:8px 14px;border-radius:999px;font-size:14px;display:none;pointer-events:none}
+#tapHint.on{display:block}
+
+button{font:inherit;font-weight:800;border:0;border-radius:12px;padding:12px 18px;cursor:pointer;
+  background:var(--ui-2);color:var(--ui-text);min-height:46px}
+button.primary{background:var(--accent);color:#1A1A1A}
+button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+/* overlays */
+.overlay{position:fixed;inset:0;display:none;overflow:auto;background:var(--ui);
+  padding:calc(env(safe-area-inset-top,0px) + 24px) 20px calc(env(safe-area-inset-bottom,0px) + 24px)}
+.overlay.on{display:block}
+.sheet{max-width:560px;margin:0 auto}
+.title{font-size:clamp(52px,15vw,96px);line-height:.95;margin:8px 0 14px;color:var(--accent)}
+.lead{font-size:17px;line-height:1.65;margin:0 0 14px}
+.note{font-size:14px;line-height:1.6;color:var(--ui-muted);margin:0 0 18px}
+.steps{padding-left:1.2em;line-height:1.7;margin:0 0 20px}
+.row{display:flex;flex-wrap:wrap;gap:10px}
+.err{background:var(--warn);color:#1A1A1A;padding:12px 14px;border-radius:12px;margin:0 0 16px;line-height:1.55;display:none}
+.err.on{display:block}
+h2{font-size:32px;margin:0 0 10px}
+#setupCam{width:100%;aspect-ratio:4/3;background:#000;border-radius:14px;display:block;margin:0 0 12px}
+label{display:block;font-weight:600;margin:14px 0 6px}
+label small{color:var(--ui-muted);font-weight:400}
+input[type=range]{width:100%;accent-color:var(--accent);height:32px}
+.meter{height:14px;border-radius:7px;background:var(--ui-2);overflow:hidden;margin:6px 0 4px}
+.meter i{display:block;height:100%;width:0;background:var(--go);transition:width .1s linear}
+.live{display:flex;justify-content:space-between;font-size:15px;color:var(--ui-muted);margin-bottom:18px}
+.live b{color:var(--ui-text);font-family:"Black Han Sans","Gothic A1",sans-serif;font-weight:400;font-size:20px}
+#toast{position:fixed;left:50%;top:42%;transform:translate(-50%,-50%) scale(.9);opacity:0;pointer-events:none;
+  font-size:clamp(36px,10vw,72px);color:var(--accent);text-shadow:0 3px 0 rgba(0,0,0,.4);transition:opacity .3s,transform .3s;white-space:nowrap}
+#toast.on{opacity:1;transform:translate(-50%,-50%) scale(1)}
+.summary{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 0 20px}
+.summary div{background:var(--ui-2);border-radius:12px;padding:12px}
+.summary dt{color:var(--ui-muted);font-size:14px}
+.summary dd{margin:4px 0 0;font-size:28px;font-family:"Black Han Sans","Gothic A1",sans-serif}
+@media (prefers-reduced-motion: reduce){#toast{transition:none}}
+</style>
+</head>
+<body>
+<canvas id="game" aria-label="자전거 게임 화면"></canvas>
+
+<div id="hud" aria-live="off">
+  <div class="speed display"><b id="hSpeed">0</b><span>km/h</span></div>
+  <dl class="stats">
+    <dt>케이던스</dt><dd id="hRpm">–</dd>
+    <dt>거리</dt><dd id="hDist">0.00 km</dd>
+    <dt>시간</dt><dd id="hTime">0:00</dd>
+  </dl>
+</div>
+<canvas id="mini" width="128" height="96" aria-hidden="true"></canvas>
+<div id="tapHint">화면을 탭할 때마다 페달 반 바퀴</div>
+<div id="controls">
+  <button id="btnCam" type="button">카메라</button>
+  <button id="btnPause" type="button">일시정지</button>
+</div>
+<div id="toast" class="display"></div>
+
+<!-- 시작 화면 -->
+<section id="start" class="overlay on">
+  <div class="sheet">
+    <h1 class="title display">페달 라이드</h1>
+    <p class="lead">실내 자전거 앞에 휴대폰을 세워 두고 페달을 밟으면, 전면 카메라가 다리 움직임을 읽어 화면 속 라이더가 달려요.</p>
+    <ol class="steps">
+      <li>휴대폰을 핸들이나 거치대에 고정하고 화면이 나를 보게 해요.</li>
+      <li>무릎이 올라올 때 화면 아래쪽에 보이도록 각도를 맞춰요.</li>
+      <li>얼굴과 다리에 빛이 들도록 밝은 곳에서 타요.</li>
+    </ol>
+    <p class="note">카메라 영상은 이 기기 안에서만 분석되고 저장하거나 전송하지 않아요.</p>
+    <p id="camErr" class="err" role="alert"></p>
+    <div class="row">
+      <button id="btnStartCam" class="primary" type="button">카메라로 시작</button>
+      <button id="btnStartTap" type="button">카메라 없이 해 보기</button>
+    </div>
+  </div>
+</section>
+
+<!-- 감지 설정 -->
+<section id="setup" class="overlay">
+  <div class="sheet">
+    <h2 class="display">감지 맞추기</h2>
+    <p class="note">페달을 밟아 보세요. 다리가 움직일 때 초록 점이 노란 상자 안에 많이 찍히고, 머리나 팔은 상자 밖에 있으면 좋아요.</p>
+    <canvas id="setupCam" width="320" height="240" aria-label="카메라 미리보기"></canvas>
+    <div class="meter" aria-hidden="true"><i id="meterBar"></i></div>
+    <div class="live"><span>움직임</span><span>케이던스 <b id="liveRpm">–</b> rpm</span></div>
+    <label for="zTop">감지 영역 위쪽 <small>상자의 윗선</small></label>
+    <input id="zTop" type="range" min="0" max="90" step="1">
+    <label for="zBot">감지 영역 아래쪽 <small>상자의 아랫선</small></label>
+    <input id="zBot" type="range" min="10" max="100" step="1">
+    <label for="sens">민감도 <small>안 잡히면 올리고, 가만히 있어도 움직이면 내려요</small></label>
+    <input id="sens" type="range" min="1" max="10" step="1">
+    <div class="row" style="margin-top:22px">
+      <button id="btnRide" class="primary" type="button">출발하기</button>
+      <button id="btnSetupBack" type="button">처음으로</button>
+    </div>
+  </div>
+</section>
+
+<!-- 일시정지 -->
+<section id="pause" class="overlay">
+  <div class="sheet">
+    <h2 class="display">잠시 쉬는 중</h2>
+    <dl class="summary">
+      <div><dt>달린 거리</dt><dd id="sDist">0.00 km</dd></div>
+      <div><dt>시간</dt><dd id="sTime">0:00</dd></div>
+      <div><dt>평균 속도</dt><dd id="sAvg">0.0</dd></div>
+      <div><dt>최고 속도</dt><dd id="sMax">0.0</dd></div>
+    </dl>
+    <div class="row">
+      <button id="btnResume" class="primary" type="button">계속 달리기</button>
+      <button id="btnTune" type="button">감지 다시 맞추기</button>
+      <button id="btnReset" type="button">기록 지우고 새로 시작</button>
+    </div>
+  </div>
+</section>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const cv = $('game'), ctx = cv.getContext('2d');
+  let W = 0, H = 0, DPR = 1, T = {};
+
+  // ---------- 설정 ----------
+  const S = { zoneTop: 0.5, zoneBottom: 1.0, sens: 6 };
+  try { Object.assign(S, JSON.parse(localStorage.getItem('pedalride:settings') || '{}')); } catch (e) {}
+  const saveSettings = () => { try { localStorage.setItem('pedalride:settings', JSON.stringify(S)); } catch (e) {} };
+
+  // ---------- 상태 ----------
+  const G = { mode: 'idle', cam: false, speed: 0, maxSpeed: 0, dist: 0, time: 0,
+    crank: 0, wheel: 0, nextKm: 1, showMini: true };
+  let video = null, stream = null, wakeLock = null;
+
+  // ---------- 테마 ----------
+  function readTheme() {
+    const cs = getComputedStyle(document.documentElement);
+    ['sky1','sky2','sun','mtn','hill','hill2','tree','trunk','road','line','edge','bike','skin','shirt','shorts','accent']
+      .forEach(k => T[k] = cs.getPropertyValue('--' + k).trim());
+    T.dark = matchMedia('(prefers-color-scheme: dark)').matches;
+  }
+  matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', readTheme);
+
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = innerWidth; H = innerHeight;
+    cv.width = W * DPR; cv.height = H * DPR;
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    readTheme();
+  }
+  addEventListener('resize', resize);
+  resize();
+
+  // ---------- 카메라 ----------
+  async function startCamera() {
+    const err = $('camErr');
+    err.classList.remove('on');
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      showErr('이 브라우저에서는 카메라를 쓸 수 없어요. 링크를 Safari나 Chrome에서 직접 열어 보세요.');
+      return false;
+    }
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user', width: { ideal: 320 }, height: { ideal: 240 }, frameRate: { ideal: 30 } },
+        audio: false
+      });
+      video = document.createElement('video');
+      video.setAttribute('playsinline', ''); video.playsInline = true; video.muted = true;
+      video.srcObject = stream;
+      await video.play();
+      G.cam = true;
+      return true;
+    } catch (e) {
+      if (e && e.name === 'NotAllowedError') {
+        showErr('카메라 권한이 거부됐어요. 브라우저 설정에서 이 사이트의 카메라를 허용하거나, 링크를 브라우저에서 직접 열어 다시 시도해 보세요.');
+      } else if (e && e.name === 'NotFoundError') {
+        showErr('사용할 수 있는 카메라를 찾지 못했어요.');
+      } else {
+        showErr('카메라를 켜지 못했어요. 링크를 Safari나 Chrome에서 직접 열어 다시 시도해 보세요.');
+      }
+      return false;
+    }
+    function showErr(m) { err.textContent = m; err.classList.add('on'); }
+  }
+
+  // ---------- 움직임 분석 ----------
+  const PW = 64, PH = 48;
+  const pc = document.createElement('canvas'); pc.width = PW; pc.height = PH;
+  const pctx = pc.getContext('2d', { willReadFrequently: true });
+  let prevGray = null;
+  const mask = new Uint8Array(PW * PH);
+  const M = { energy: 0, bal: 0, side: 0, strokes: [], rpm: 0 };
+  const FLOOR = 0.02;
+
+  function processFrame() {
+    if (!video || video.readyState < 2) return;
+    pctx.save(); pctx.translate(PW, 0); pctx.scale(-1, 1);
+    pctx.drawImage(video, 0, 0, PW, PH); pctx.restore();
+    const d = pctx.getImageData(0, 0, PW, PH).data;
+    const g = new Uint8Array(PW * PH);
+    for (let i = 0; i < g.length; i++) g[i] = (d[i*4]*77 + d[i*4+1]*150 + d[i*4+2]*29) >> 8;
+    if (prevGray) {
+      const thr = 50 - S.sens * 4;
+      const y0 = Math.floor(S.zoneTop * PH), y1 = Math.max(y0 + 1, Math.ceil(S.zoneBottom * PH));
+      let L = 0, R = 0;
+      mask.fill(0);
+      for (let y = y0; y < y1; y++) for (let x = 0; x < PW; x++) {
+        const i = y * PW + x;
+        if (Math.abs(g[i] - prevGray[i]) > thr) { mask[i] = 1; if (x < PW / 2) L++; else R++; }
+      }
+      const area = (y1 - y0) * PW;
+      feed(L, R, area);
+    }
+    prevGray = g;
+  }
+
+  // 왼쪽/오른쪽 다리가 번갈아 움직이는 걸 반 바퀴로 셈
+  function feed(L, R, area) {
+    const raw = (L + R) / area;
+    M.energy = M.energy * 0.8 + raw * 0.2;
+    if (M.energy > FLOOR && L + R > 6) {
+      const b = (L - R) / (L + R);
+      M.bal = M.bal * 0.55 + b * 0.45;
+      if (M.bal > 0.18 && M.side <= 0) { if (M.side < 0) stroke(); M.side = 1; }
+      else if (M.bal < -0.18 && M.side >= 0) { if (M.side > 0) stroke(); M.side = -1; }
+    }
+  }
+  function stroke() {
+    const now = performance.now();
+    M.strokes.push(now);
+    while (M.strokes.length > 8) M.strokes.shift();
+  }
+  function updateRpm() {
+    const now = performance.now();
+    const s = M.strokes.filter(t => now - t < 3000);
+    if (s.length >= 3) {
+      const avg = (s[s.length - 1] - s[0]) / (s.length - 1) / 1000;
+      const sinceLast = (now - s[s.length - 1]) / 1000;
+      const half = Math.max(avg, sinceLast * 0.8);
+      M.rpm = Math.min(180, 30 / half);
+    } else M.rpm = 0;
+  }
+
+  function drawPreview(c) {
+    const x = c.getContext('2d'), w = c.width, h = c.height;
+    x.fillStyle = '#000'; x.fillRect(0, 0, w, h);
+    if (video && video.readyState >= 2) {
+      x.save(); x.translate(w, 0); x.scale(-1, 1); x.drawImage(video, 0, 0, w, h); x.restore();
+    }
+    const cw = w / PW, ch = h / PH;
+    x.fillStyle = 'rgba(61,220,151,.85)';
+    for (let i = 0; i < mask.length; i++) if (mask[i]) x.fillRect((i % PW) * cw, Math.floor(i / PW) * ch, cw, ch);
+    x.strokeStyle = '#FFC93C'; x.lineWidth = Math.max(2, w / 110);
+    const ty = S.zoneTop * h, by = S.zoneBottom * h;
+    x.strokeRect(2, ty + 1, w - 4, Math.max(4, by - ty - 2));
+    x.beginPath(); x.setLineDash([6, 6]); x.moveTo(w / 2, ty); x.lineTo(w / 2, by); x.stroke(); x.setLineDash([]);
+  }
+
+  // ---------- 화면 전환 ----------
+  function show(id) {
+    ['start', 'setup', 'pause'].forEach(s => $(s).classList.toggle('on', s === id));
+    const riding = id === null;
+    $('hud').classList.toggle('on', riding);
+    $('controls').classList.toggle('on', riding);
+    $('btnCam').style.display = G.cam ? '' : 'none';
+    $('mini').classList.toggle('on', riding && G.cam && G.showMini);
+    $('tapHint').classList.toggle('on', riding && !G.cam);
+  }
+
+  $('btnStartCam').onclick = async () => {
+    const ok = await startCamera();
+    if (ok) { syncSliders(); G.mode = 'setup'; show('setup'); }
+  };
+  $('btnStartTap').onclick = () => { G.cam = false; ride(); };
+  $('btnRide').onclick = ride;
+  $('btnSetupBack').onclick = () => { stopCamera(); G.mode = 'idle'; show('start'); };
+  $('btnPause').onclick = pause;
+  $('btnResume').onclick = ride;
+  $('btnTune').onclick = async () => {
+    if (!G.cam) { const ok = await startCamera(); if (!ok) { show('start'); return; } }
+    syncSliders(); G.mode = 'setup'; show('setup');
+  };
+  $('btnReset').onclick = () => {
+    Object.assign(G, { speed: 0, maxSpeed: 0, dist: 0, time: 0, nextKm: 1 });
+    ride();
+  };
+  $('btnCam').onclick = () => { G.showMini = !G.showMini; show(null); };
+
+  function stopCamera() {
+    if (stream) stream.getTracks().forEach(t => t.stop());
+    stream = null; video = null; G.cam = false; prevGray = null;
+  }
+
+  function syncSliders() {
+    $('zTop').value = Math.round(S.zoneTop * 100);
+    $('zBot').value = Math.round(S.zoneBottom * 100);
+    $('sens').value = S.sens;
+  }
+  $('zTop').oninput = e => { S.zoneTop = Math.min(+e.target.value, +$('zBot').value - 10) / 100; saveSettings(); };
+  $('zBot').oninput = e => { S.zoneBottom = Math.max(+e.target.value, +$('zTop').value + 10) / 100; saveSettings(); };
+  $('sens').oninput = e => { S.sens = +e.target.value; saveSettings(); };
+
+  function ride() { G.mode = 'ride'; show(null); requestWake(); }
+  function pause() {
+    G.mode = 'pause';
+    $('sDist').textContent = (G.dist / 1000).toFixed(2) + ' km';
+    $('sTime').textContent = fmtTime(G.time);
+    $('sAvg').textContent = (G.time > 0 ? (G.dist / G.time) * 3.6 : 0).toFixed(1);
+    $('sMax').textContent = G.maxSpeed.toFixed(1);
+    show('pause');
+  }
+
+  async function requestWake() {
+    try { if ('wakeLock' in navigator && !wakeLock) { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => wakeLock = null); } } catch (e) {}
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && G.mode === 'ride') requestWake();
+    if (document.visibilityState === 'hidden' && G.mode === 'ride') pause();
+  });
+
+  // 탭/스페이스로도 페달 (카메라 없을 때 테스트용)
+  cv.addEventListener('pointerdown', () => { if (G.mode === 'ride') stroke(); });
+  addEventListener('keydown', e => {
+    if (e.code === 'Space' && G.mode === 'ride') { e.preventDefault(); stroke(); }
+  });
+
+  // ---------- 유틸 ----------
+  const fmtTime = s => { s = Math.floor(s); const m = Math.floor(s / 60); return m + ':' + String(s % 60).padStart(2, '0'); };
+  const hash = n => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
+  const ridge = (x, a, b, c) => Math.sin(x * a) * 0.5 + Math.sin(x * b + 1.3) * 0.3 + Math.sin(x * c + 2.1) * 0.2;
+  let toastTimer = 0;
+  function toast(msg) {
+    const t = $('toast'); t.textContent = msg; t.classList.add('on');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('on'), 2200);
+  }
+
+  // ---------- 그리기 ----------
+  function drawScene() {
+    const gy = H * 0.7, pxm = Math.max(H, W * 0.6) / 45, off = G.dist * pxm;
+    const sky = ctx.createLinearGradient(0, 0, 0, gy);
+    sky.addColorStop(0, T.sky1); sky.addColorStop(1, T.sky2);
+    ctx.fillStyle = sky; ctx.fillRect(0, 0, W, gy + 2);
+
+    if (T.dark) {
+      ctx.fillStyle = 'rgba(255,255,255,.75)';
+      for (let i = 0; i < 70; i++) {
+        const sx = ((hash(i) * W * 1.5 - off * 0.02) % W + W) % W, sy = hash(i + 99) * gy * 0.6;
+        ctx.fillRect(sx, sy, 1.5, 1.5);
+      }
+    }
+    ctx.fillStyle = T.sun;
+    ctx.beginPath(); ctx.arc(W * 0.78, gy * 0.32, Math.min(W, H) * 0.07, 0, Math.PI * 2); ctx.fill();
+
+    layer(T.mtn, gy - H * 0.2, H * 0.12, off * 0.08, 0.004, 0.011, 0.023);
+    layer(T.hill, gy - H * 0.07, H * 0.05, off * 0.3, 0.008, 0.019, 0.041);
+
+    // 나무
+    const tf = off * 0.65, sp = 90;
+    for (let i = Math.floor(tf / sp) - 1; i < (tf + W) / sp + 1; i++) {
+      if (hash(i) < 0.35) continue;
+      const tx = i * sp - tf + hash(i + 7) * 50, s = 0.7 + hash(i + 3) * 0.6;
+      const th = H * 0.06 * s;
+      ctx.fillStyle = T.trunk; ctx.fillRect(tx - 3 * s, gy - th * 0.5, 6 * s, th * 0.5);
+      ctx.fillStyle = T.tree;
+      ctx.beginPath(); ctx.moveTo(tx, gy - th * 1.6); ctx.lineTo(tx + th * 0.45, gy - th * 0.35); ctx.lineTo(tx - th * 0.45, gy - th * 0.35); ctx.fill();
+    }
+    ctx.fillStyle = T.hill2; ctx.fillRect(0, gy, W, H * 0.04);
+
+    // 도로
+    const ry = gy + H * 0.04;
+    ctx.fillStyle = T.edge; ctx.fillRect(0, ry, W, 4);
+    ctx.fillStyle = T.road; ctx.fillRect(0, ry + 4, W, H - ry);
+    ctx.fillStyle = T.line;
+    const dash = 70, dy = ry + (H - ry) * 0.62;
+    for (let x = -((off) % dash) - dash; x < W + dash; x += dash) ctx.fillRect(x, dy, dash * 0.55, 5);
+
+    // 1km 깃발
+    const cx = W * (W > H ? 0.3 : 0.38);
+    for (let k = Math.max(1, Math.floor(G.dist / 1000)); k <= Math.floor(G.dist / 1000) + 1; k++) {
+      const fx = cx + (k * 1000 - G.dist) * pxm;
+      if (fx < -60 || fx > W + 60) continue;
+      ctx.fillStyle = T.line; ctx.fillRect(fx, ry - H * 0.16, 4, H * 0.16 + 4);
+      ctx.fillStyle = T.accent; ctx.beginPath();
+      ctx.moveTo(fx + 4, ry - H * 0.16); ctx.lineTo(fx + 4 + H * 0.09, ry - H * 0.135); ctx.lineTo(fx + 4, ry - H * 0.11); ctx.fill();
+      ctx.fillStyle = '#1A1A1A'; ctx.font = `${Math.round(H * 0.022)}px "Black Han Sans", sans-serif`;
+      ctx.fillText(k + 'km', fx + 7, ry - H * 0.128);
+    }
+
+    drawRider(cx, ry + (H - ry) * 0.3);
+  }
+
+  function layer(color, base, amp, o, a, b, c) {
+    ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(0, H);
+    for (let x = 0; x <= W + 8; x += 8) ctx.lineTo(x, base - amp * (0.6 + 0.5 * ridge(x + o, a, b, c)));
+    ctx.lineTo(W, H); ctx.closePath(); ctx.fill();
+  }
+
+  function seg(a, b, w, col) { ctx.strokeStyle = col; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); }
+  function knee(hp, ft, l1, l2) {
+    let dx = ft[0] - hp[0], dy = ft[1] - hp[1], d = Math.hypot(dx, dy);
+    d = Math.min(d, l1 + l2 - 0.01);
+    const a = (l1 * l1 - l2 * l2 + d * d) / (2 * d), h = Math.sqrt(Math.max(0, l1 * l1 - a * a));
+    const ux = dx / Math.hypot(dx, dy), uy = dy / Math.hypot(dx, dy);
+    const px = hp[0] + a * ux, py = hp[1] + a * uy;
+    const k1 = [px - h * uy, py + h * ux], k2 = [px + h * uy, py - h * ux];
+    return k1[0] > k2[0] ? k1 : k2;
+  }
+
+  function drawRider(cx, ground) {
+    const u = Math.min(H / 230, W / 160);
+    const R = 14 * u, wy = ground - R;
+    const rear = [cx - 24 * u, wy], front = [cx + 25 * u, wy];
+    const bb = [cx - 3 * u, wy], seat = [cx - 9 * u, wy - 24 * u], head = [cx + 17 * u, wy - 21 * u], bar = [cx + 19 * u, wy - 27 * u];
+    const hip = [seat[0], seat[1] - 2 * u], sh = [cx + 6 * u, wy - 45 * u];
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    const pedal = s => [bb[0] + Math.cos(G.crank + s) * 6 * u, bb[1] + Math.sin(G.crank + s) * 6 * u];
+    const p1 = pedal(0), p2 = pedal(Math.PI);
+
+    // 먼 쪽 다리
+    const k2 = knee(hip, p2, 17 * u, 16 * u);
+    seg(hip, k2, 5.5 * u, T.shorts); seg(k2, p2, 4.5 * u, shade(T.skin));
+
+    // 바퀴
+    [rear, front].forEach(c => {
+      ctx.strokeStyle = '#1C1C1C'; ctx.lineWidth = 2.6 * u; ctx.beginPath(); ctx.arc(c[0], c[1], R, 0, Math.PI * 2); ctx.stroke();
+      ctx.strokeStyle = 'rgba(200,200,200,.75)'; ctx.lineWidth = 0.6 * u;
+      for (let i = 0; i < 6; i++) { const a = G.wheel + i * Math.PI / 3; ctx.beginPath(); ctx.moveTo(c[0], c[1]); ctx.lineTo(c[0] + Math.cos(a) * R * 0.92, c[1] + Math.sin(a) * R * 0.92); ctx.stroke(); }
+    });
+    // 프레임
+    const fw = 2.4 * u;
+    seg(rear, bb, fw, T.bike); seg(rear, seat, fw, T.bike); seg(seat, bb, fw, T.bike);
+    seg(bb, head, fw, T.bike); seg(seat, [head[0], head[1] - 2 * u], fw, T.bike);
+    seg(head, front, fw, T.bike); seg(head, bar, fw, T.bike);
+    seg([seat[0] - 4 * u, seat[1] - 1 * u], [seat[0] + 4 * u, seat[1] - 1 * u], 2.2 * u, '#1C1C1C');
+    seg(p1, p2, 1.6 * u, '#888');
+
+    // 몸
+    seg(hip, sh, 9 * u, T.shirt);
+    ctx.fillStyle = T.skin; ctx.beginPath(); ctx.arc(sh[0] + 5 * u, sh[1] - 6 * u, 5 * u, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = T.bike; ctx.beginPath(); ctx.arc(sh[0] + 5 * u, sh[1] - 7.5 * u, 5.4 * u, Math.PI * 1.05, Math.PI * 1.95); ctx.fill();
+    seg(sh, bar, 3.4 * u, T.skin);
+
+    // 가까운 쪽 다리
+    const k1 = knee(hip, p1, 17 * u, 16 * u);
+    seg(hip, k1, 6 * u, T.shorts); seg(k1, p1, 5 * u, T.skin);
+    seg([p1[0] - 2.5 * u, p1[1]], [p1[0] + 3 * u, p1[1]], 2.4 * u, '#1C1C1C');
+  }
+  function shade(hex) {
+    const n = parseInt(hex.replace('#', ''), 16);
+    if (isNaN(n)) return hex;
+    const f = c => Math.round(c * 0.78);
+    return `rgb(${f(n >> 16 & 255)},${f(n >> 8 & 255)},${f(n & 255)})`;
+  }
+
+  // ---------- 메인 루프 ----------
+  let last = performance.now(), hudTimer = 0;
+  function loop(now) {
+    const dt = Math.min(0.1, (now - last) / 1000); last = now;
+    if (G.cam && (G.mode === 'ride' || G.mode === 'setup')) processFrame();
+    updateRpm();
+
+    if (G.mode === 'ride') {
+      const effort = Math.max(0, Math.min(1, (M.energy - FLOOR) / 0.12));
+      let target = M.rpm >= 20 ? M.rpm * 0.3 : (G.cam ? effort * 12 : 0);
+      const k = target > G.speed ? 1.4 : 0.45; // 가속은 빠르게, 관성으로 천천히 감속
+      G.speed += (target - G.speed) * Math.min(1, dt * k);
+      if (G.speed < 0.2 && target === 0) G.speed = 0;
+      G.maxSpeed = Math.max(G.maxSpeed, G.speed);
+      G.dist += G.speed / 3.6 * dt;
+      G.time += dt;
+      G.crank += (G.speed / 0.3) / 60 * Math.PI * 2 * dt;
+      G.wheel += (G.speed / 3.6) / 0.35 * dt;
+      if (G.dist >= G.nextKm * 1000) { toast(G.nextKm + 'km 돌파!'); G.nextKm++; }
+
+      hudTimer += dt;
+      if (hudTimer > 0.15) {
+        hudTimer = 0;
+        $('hSpeed').textContent = Math.round(G.speed);
+        $('hRpm').textContent = M.rpm >= 20 ? Math.round(M.rpm) + ' rpm' : '–';
+        $('hDist').textContent = (G.dist / 1000).toFixed(2) + ' km';
+        $('hTime').textContent = fmtTime(G.time);
+      }
+      if (G.cam && G.showMini) drawPreview($('mini'));
+    }
+
+    if (G.mode === 'setup') {
+      drawPreview($('setupCam'));
+      $('meterBar').style.width = Math.min(100, M.energy / 0.15 * 100) + '%';
+      $('liveRpm').textContent = M.rpm >= 20 ? Math.round(M.rpm) : '–';
+    }
+
+    drawScene();
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
